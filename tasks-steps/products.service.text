@@ -1,0 +1,5 @@
+1 -  create products table
+        id, name , category_id, description, price
+
+2 -  create categories table
+        id, name

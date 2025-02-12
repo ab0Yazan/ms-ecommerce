@@ -1,0 +1,87 @@
+version: '3.8'
+services:
+  products:
+      build:
+        context: ./products
+        dockerfile: ./docker/Dockerfile
+    #   entrypoint: sh -c "./wait-for-it.sh -t 300 mysql:3306 && /usr/bin/composer install && php /usr/local/src/products/artisan migrate --force && php-fpm"
+      volumes:
+        - ./products:/usr/local/src/products
+      environment:
+        - APP_ENV=local
+        - APP_KEY=base64:blInMdle6z97B7yFshqpmZY+kctj6HNmBlqLgYqvnCM=
+        - APP_DEBUG=true
+        - DB_CONNECTION=mysql
+        - DB_HOST=mysql
+        - DB_PORT=3306
+        - DB_DATABASE=products
+        - DB_USERNAME=root
+        - DB_PASSWORD=root
+        - REDIS_HOST=redis
+        - REDIS_PASSWORD=null
+        - REDIS_PORT=6379
+        - REDIS_CLIENT=phpredis
+        - REDIS_SCHEME=tcp
+        - LOG_CHANNEL=stack
+        - LOG_LEVEL=debug
+      depends_on:
+        - mysql
+
+  products-api:
+      image: nginx:1.19-alpine
+      volumes:
+        - ./products:/usr/local/src/products
+        - ./products/docker/nginx/conf.d:/etc/nginx/conf.d
+      ports:
+        - 8001:80
+      depends_on:
+        - products
+
+  mysql:
+    image: mysql:8.0
+    platform: linux/x86_64
+    restart: unless-stopped
+    volumes:
+      - ./bin/mysql:/docker-entrypoint-initdb.d
+      - ./mysqldata:/var/lib/mysql
+    ports:
+      - 3307:3306 # Fixed port conflict, mapping MySQL container's 3306 to host's 3307
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+
+  redis:
+      image: redis:6.2.5-alpine
+      platform: linux/x86_64
+      volumes:
+        - ./redisdata:/data
+      ports:
+        - 6378:6379 # Fixed port conflict, mapping Redis container's 6379 to host's 6378
+
+  phpmyadmin:
+    image: phpmyadmin
+    platform: linux/x86_64
+    ports:
+      - 8080:80
+    environment:
+      PMA_HOST: mysql  
+      PMA_PORT: 3306   
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/my.cnf
+    depends_on:
+      - mysql
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    platform: linux/x86_64
+    hostname: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - 8081:8081 # Fixed port mapping for Redis Commander
+    depends_on:
+      - redis
+
+volumes:
+  mysql_data:
