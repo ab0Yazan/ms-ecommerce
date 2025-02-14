@@ -39,6 +39,7 @@ services:
       - warehouse-api
       - ratings-api
       - order-api
+      - catalog-api
 
   products-api:
       image: nginx:1.19-alpine
@@ -224,6 +225,45 @@ services:
       - redis
       - warehouse
 
+  catalog:
+      build:
+        context: ./catalog
+        dockerfile: ./docker/Dockerfile
+    #   entrypoint: sh -c "./wait-for-it.sh -t 300 mysql:3306 && /usr/bin/composer install && php /usr/local/src/products/artisan migrate --force && php-fpm"
+      volumes:
+        - ./catalog:/usr/local/src/catalog
+      environment:
+        - APP_ENV=local
+        - APP_KEY=base64:yckhFjdI1h5I/2qbVceMFsVNCGBR685sbRBz9Uvbfp0=
+        - APP_DEBUG=true
+        - DB_CONNECTION=mysql
+        - DB_HOST=mysql
+        - DB_PORT=3306
+        - DB_DATABASE=catalog
+        - DB_USERNAME=root
+        - DB_PASSWORD=root
+        - REDIS_HOST=redis
+        - REDIS_PASSWORD=null
+        - REDIS_PORT=6379
+        - REDIS_CLIENT=phpredis
+        - REDIS_SCHEME=tcp
+        - LOG_CHANNEL=stack
+        - LOG_LEVEL=debug
+        - SERVICES_PRODUCTS_URL=http://products-api/api/v1/
+        - SERVICES_WAREHOUSE_URL=http://warehouse-api/api/v1/
+        - SERVICES_RATINGS_URL=http://ratings-api/api/v1/
+      depends_on:
+        - mysql
+
+  catalog-api:
+      image: nginx:1.19-alpine
+      volumes:
+        - ./catalog:/usr/local/src/catalog
+        - ./catalog/docker/nginx/conf.d:/etc/nginx/conf.d
+      ports:
+        - 8005:80
+      depends_on:
+        - catalog
   order-consumer:
     build:
       context: ./order
